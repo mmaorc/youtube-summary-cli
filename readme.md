@@ -1,6 +1,6 @@
 # YouTube Transcript Summarizer
 
-This project extracts and summarizes transcripts from YouTube videos using OpenAI GPT-3.5-turbo language model.
+This project extracts and summarizes transcripts from YouTube videos using OpenAI GPT-3.5-turbo language model. I made it since I couldn't find any simple CLI app for this.
 
 ## Installation
 
@@ -11,6 +11,8 @@ pip install -r requirements.txt
 ```
 
 ## Usage
+
+Prior to running the script, ensure that the `OPENAI_API_KEY` environment variable is set up correctly.
 
 To summarize the transcript of a YouTube video, run the `app.py` script with the video URL as an argument:
 
