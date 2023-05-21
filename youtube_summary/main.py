@@ -7,6 +7,8 @@ from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
 
+app = typer.Typer()
+
 
 class InvalidURLException(Exception):
     pass
@@ -69,6 +71,7 @@ def generate_summary(subtitles: list) -> str:
     return result["output_text"]
 
 
+@app.command()
 def main(url: str):
     subtitles = get_transcripts(url)
 
@@ -82,7 +85,3 @@ def main(url: str):
     print()
     print("OpenAI Stats:")
     print(cb)
-
-
-if __name__ == "__main__":
-    typer.run(main)

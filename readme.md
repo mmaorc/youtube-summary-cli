@@ -4,11 +4,37 @@ This project extracts and summarizes transcripts from YouTube videos using OpenA
 
 ## Installation
 
-Before using the project, make sure to install the required dependencies:
+### Install from PyPi (Coming soon)
+You can install the application using `pip` or `pipx`:
+```bash
+pip install --user youtube-summary
+```
+or
+```bash
+pipx install youtube-summary
+```
+
+### Compile from source
+
+You can compile directly from source:
+```bash
+git clone https://github.com/mmaorc/youtube-summary-cli
+cd youtube-summary-cli
+python setup.py install --user
+```
+
+
+### Development
+For development purposes, clone the repository, navigate to the project directory, and install in a virtual environment:
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/mmaorc/youtube-summary-cli
+cd youtube-summary-cli
+python -m venv .env
+source .env/bin/activate  # On Windows use `.env\Scripts\activate`
+pip install --editable .
 ```
+
 
 ## Usage
 
@@ -17,7 +43,7 @@ Prior to running the script, ensure that the `OPENAI_API_KEY` environment variab
 To summarize the transcript of a YouTube video, run the `app.py` script with the video URL as an argument:
 
 ```bash
-python app.py "https://www.youtube.com/watch?v=your_video_id"
+youtube-summary "https://www.youtube.com/watch?v=your_video_id"
 ```
 
 Replace `your_video_id` with the actual video ID.
