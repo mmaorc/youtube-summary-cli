@@ -175,7 +175,7 @@ def main(url: str):
     console.print(summary)
 
     console.print()
-    console.print("[bold]Section Summaries:[/bold]")
+    console.print("[bold]Chapter Summaries:[/bold]")
     console.print(get_pretty_section_summary_text(url, section_summaries))
 
     console.print()
