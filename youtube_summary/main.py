@@ -158,7 +158,7 @@ def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
     for section_summary in parsed_section_summaries:
         timestamp_seconds = section_summary.timestamp_seconds
         link = f"{url}&t={timestamp_seconds}"
-        timestamp_pretty = f"{timestamp_seconds // 3600}:{timestamp_seconds // 60}:{timestamp_seconds % 60}"
+        timestamp_pretty = f"{timestamp_seconds // 3600:02d}:{timestamp_seconds // 60:02d}:{timestamp_seconds % 60:02d}"
         summary = f"[link={link}]{timestamp_pretty}[/link]: {section_summary.text}"
         pretty_summaries.append(summary)
     return "\n".join(pretty_summaries)
