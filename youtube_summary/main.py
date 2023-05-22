@@ -1,7 +1,9 @@
+import re
+from collections import namedtuple
 from typing import List
-from urllib.parse import parse_qs, urlparse
 
 import typer
+import yt_dlp
 from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
 from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain
@@ -9,40 +11,45 @@ from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
-import re
-from collections import namedtuple
 from rich.console import Console
-
+from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
 
 # Define named tuple
 SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
+VideoInfo = namedtuple("VideoInfo", ["id", "title"])
+
 app = typer.Typer()
 
-SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its subtitles.
-The subtitles will be given between the triple backticks (```). The format of the subtitles will be ` [timestamp in seconds]: [text]`. 
-For each sentence in the summary, you should provide the start time of the video section that this sentence is based on.
-For example, a summary of a video section that starts in second 31 will be: `[31]: section summary`
-Here are the subtitles:
+SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its title and english subtitles.
+The format of the subtitles will be `[timestamp in seconds]: [subtitle]`.
+For each sentence in the summary, you should provide a timestamp to the original video section that this sentence is based on.
+For example, a summary of a video section that starts in second 31 will be: `[31]: summary`
+
+The title of the video is: {video_title}
+The subtitles are given between the triple backticks:
 ```
 {text}
 ```
+
 Your summary:
 """
 SECTION_TITLES_PROMPT_TEMPLATE = PromptTemplate(
-    template=SECTION_TITLES_PROMPT, input_variables=["text"]
+    template=SECTION_TITLES_PROMPT, input_variables=["text", "video_title"]
 )
 
-SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its section summaries.
-The section summaries will be given between the triple backticks (```). The format of the section summaries will be ` [timestamp in seconds]: [summary]`.
-Here are the section summaries:
+SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its title and chapter summaries.
+The format of the chapter summaries will be `[chapter timestamp in seconds]: [chapter summary]`.
+
+The title of the video is: {video_title}
+The chapter summaries are given between the triple backticks:
 ```
 {text}
 ```
+
 Your concise video summary:"""
 SUMMARY_PROMPT_TEMPLATE = PromptTemplate(
-    template=SUMMARY_PROMPT, input_variables=["text"]
+    template=SUMMARY_PROMPT, input_variables=["text", "video_title"]
 )
 
 
@@ -50,35 +57,17 @@ class InvalidURLException(Exception):
     pass
 
 
-def get_videoid_from_url(url: str) -> str:
-    """
-    Gets video ID from give YouTube video URL
+def extract_video_information(url: str) -> VideoInfo:
+    ydl_opts = {"quiet": True}
 
-    :param url: YouTube video URL in 2 formats (standard and short)
-    :return: id of YouTube video
-    :raises InvalidURLException: If URL is not valid
-    """
-    url_data = urlparse(url)
-    query = parse_qs(url_data.query)
-
-    if ("v" in query) & ("youtube.com" in url_data.netloc):
-        video_id = query["v"][0]
-    elif "youtu.be" in url_data.netloc:
-        path_lst = url.split("/")
-
-        if path_lst:
-            video_id = path_lst[-1]
-        else:
-            raise InvalidURLException("Invalid URL")
-    else:
-        raise InvalidURLException("Invalid URL")
-
-    return video_id
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        title = info_dict.get("title")
+        id = info_dict.get("id")
+        return VideoInfo(id=id, title=title)
 
 
-def get_transcripts(url: str) -> str:
-    video_id = get_videoid_from_url(url)
-
+def get_transcripts(video_id: str) -> str:
     transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
 
     try:
@@ -99,17 +88,16 @@ def get_transcripts(url: str) -> str:
     return subtitles
 
 
-def generate_section_summaries(subtitles: str) -> str:
+def generate_section_summaries(video_title: str, subtitles: str) -> str:
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
     text_splitter = RecursiveCharacterTextSplitter(
         separators=["\n\n", "\n"], chunk_size=2048, chunk_overlap=200
     )
     docs = text_splitter.create_documents([subtitles])
 
-    map_chain = LLMChain(llm=llm, prompt=SECTION_TITLES_PROMPT_TEMPLATE, verbose=False)
-    reduce_chain = LLMChain(
-        llm=llm, prompt=SECTION_TITLES_PROMPT_TEMPLATE, verbose=False
-    )
+    prompt = SECTION_TITLES_PROMPT_TEMPLATE.partial(video_title=video_title)
+    map_chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
+    reduce_chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
     combine_document_chain = StuffDocumentsChain(
         llm_chain=reduce_chain,
         document_variable_name="text",
@@ -125,10 +113,11 @@ def generate_section_summaries(subtitles: str) -> str:
     return result["output_text"]
 
 
-def generate_summary(section_titles: str) -> str:
+def generate_summary(video_title: str, section_titles: str) -> str:
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
     document = Document(page_content=section_titles)
-    chain = LLMChain(llm=llm, prompt=SUMMARY_PROMPT_TEMPLATE, verbose=False)
+    prompt = SUMMARY_PROMPT_TEMPLATE.partial(video_title=video_title)
+    chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
     result = chain([document])
     return result["text"]
 
@@ -168,18 +157,25 @@ def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
 def main(url: str):
     console = Console(highlight=False)
 
-    subtitles = get_transcripts(url)
+    video_information = extract_video_information(url)
+
+    subtitles = get_transcripts(video_information.id)
 
     with get_openai_callback() as cb:
-        section_summaries = generate_section_summaries(subtitles)
-        summary = generate_summary(section_summaries)
+        section_summaries = generate_section_summaries(
+            video_information.title, subtitles
+        )
+        summary = generate_summary(video_information.title, section_summaries)
+
+    console.print()
+    console.print(f"[bold]Video Title:[/bold] {video_information.title}")
 
     console.print()
     console.print("[bold]Summary:[/bold]")
     console.print(summary)
 
     console.print()
-    console.print("[bold]Section summaries:[/bold]")
+    console.print("[bold]Section Summaries:[/bold]")
     console.print(get_pretty_section_summary_text(url, section_summaries))
 
     console.print()
