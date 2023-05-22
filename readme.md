@@ -1,6 +1,6 @@
-# YouTube Transcript Summarizer
+# YouTube Summary CLI
 
-This project extracts and summarizes transcripts from YouTube videos using OpenAI GPT-3.5-turbo language model. I made it since I couldn't find any simple CLI app for this.
+A simple CLI tool that summarizes YouTube videos using OpenAI GPT-3.5-turbo language model.
 
 ## Installation
 
@@ -47,6 +47,8 @@ youtube-summary "https://www.youtube.com/watch?v=your_video_id"
 ```
 
 Replace `your_video_id` with the actual video ID.
+
+Note that generating a summary might take a couple of minutes, depending on the video's transcript length.
 
 ## License
 
