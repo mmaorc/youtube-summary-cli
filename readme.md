@@ -4,7 +4,7 @@ A simple CLI tool that summarizes YouTube videos.
 
 ![Screenshot](./docs/screenshot.png)
 
-The timestamp are also clickable, try them 🙂
+The timestamps are also clickable, try them 🙂
 
 ## Installation
 
