@@ -12,7 +12,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
 import re
 from collections import namedtuple
-from rich import print
+from rich.console import Console
 
 
 # Define named tuple
@@ -166,20 +166,22 @@ def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
 
 @app.command()
 def main(url: str):
+    console = Console(highlight=False)
+
     subtitles = get_transcripts(url)
 
     with get_openai_callback() as cb:
         section_summaries = generate_section_summaries(subtitles)
         summary = generate_summary(section_summaries)
 
-    print()
-    print("Summary:")
-    print(summary)
+    console.print()
+    console.print("Summary:")
+    console.print(summary)
 
-    print()
-    print("Section summaries:")
-    print(get_pretty_section_summary_text(url, section_summaries))
+    console.print()
+    console.print("Section summaries:")
+    console.print(get_pretty_section_summary_text(url, section_summaries))
 
-    print()
-    print("OpenAI Stats:")
-    print(cb)
+    console.print()
+    console.print("OpenAI Stats:")
+    console.print(cb)
