@@ -24,7 +24,7 @@ app = typer.Typer()
 SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its title and english subtitles.
 The format of the subtitles will be `[timestamp in seconds]: [subtitle]`.
 For each sentence in the summary, you should provide a timestamp to the original video section that this sentence is based on.
-For example, a summary of a video section that starts in second 31 will be: `[31]: summary`
+For example, a summary of a video section that starts at second 31 will be: `[31]: summary`.
 
 The title of the video is: {video_title}
 The subtitles are given between the triple backticks:
@@ -39,7 +39,8 @@ SECTION_TITLES_PROMPT_TEMPLATE = PromptTemplate(
 )
 
 SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its title and chapter summaries.
-The format of the chapter summaries will be `[chapter timestamp in seconds]: [chapter summary]`.
+The format of the chapter summaries will be `[chapter timestamp in seconds]: chapter summary`.
+For example, a summary of a chapter that starts at second 31 will be: `[31]: summary`.
 
 The title of the video is: {video_title}
 The chapter summaries are given between the triple backticks:
@@ -91,7 +92,7 @@ def get_transcripts(video_id: str) -> str:
 def generate_section_summaries(video_title: str, subtitles: str) -> str:
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n"], chunk_size=2048, chunk_overlap=200
+        separators=["\n\n", "\n"], chunk_size=1024, chunk_overlap=100
     )
     docs = text_splitter.create_documents([subtitles])
 
