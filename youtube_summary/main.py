@@ -1,13 +1,41 @@
 from urllib.parse import parse_qs, urlparse
 
 import typer
+from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
-from langchain.chains.summarize import load_summarize_chain
+from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain
+from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chat_models import ChatOpenAI
+from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
 
 app = typer.Typer()
+
+SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its subtitles.
+The subtitles will be given between the triple backticks (```). The format of the subtitles will be ` [timestamp in seconds]: [text]`.
+For each sentence in the summary, you should provide the start time of the video section that this sentence is based on.
+For example, a summary of a video section that starts in second 31 will be given with: `[31]` prefix.
+Here are the subtitles:
+```
+{text}
+```
+Your summary:
+"""
+SECTION_TITLES_PROMPT_TEMPLATE = PromptTemplate(
+    template=SECTION_TITLES_PROMPT, input_variables=["text"]
+)
+
+SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its section summaries.
+The section summaries will be given between the triple backticks (```). The format of the section summaries will be ` [timestamp in seconds]: [summary]`.
+Here are the section summaries:
+```
+{text}
+```
+Your concise video summary:"""
+SUMMARY_PROMPT_TEMPLATE = PromptTemplate(
+    template=SUMMARY_PROMPT, input_variables=["text"]
+)
 
 
 class InvalidURLException(Exception):
@@ -53,22 +81,48 @@ def get_transcripts(url: str) -> str:
     subtitles = transcript.fetch()
 
     subtitles = "\n".join(
-        [sbt["text"] for sbt in subtitles if sbt["text"] != "[Music]"]
+        [
+            f"{sbt['start']}: {sbt['text']}"
+            for sbt in subtitles
+            if sbt["text"] != "[Music]"
+        ]
     )
 
     return subtitles
 
 
-def generate_summary(subtitles: list) -> str:
+def generate_section_summaries(subtitles: str) -> str:
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n"], chunk_size=4096, chunk_overlap=200
+        separators=["\n\n", "\n"], chunk_size=2048, chunk_overlap=200
     )
     docs = text_splitter.create_documents([subtitles])
 
-    chain = load_summarize_chain(llm, chain_type="map_reduce")
-    result = chain(docs)
+    map_chain = LLMChain(llm=llm, prompt=SECTION_TITLES_PROMPT_TEMPLATE, verbose=False)
+    reduce_chain = LLMChain(
+        llm=llm, prompt=SECTION_TITLES_PROMPT_TEMPLATE, verbose=False
+    )
+    combine_document_chain = StuffDocumentsChain(
+        llm_chain=reduce_chain,
+        document_variable_name="text",
+        verbose=False,
+    )
+    map_reduce_chain = MapReduceDocumentsChain(
+        llm_chain=map_chain,
+        combine_document_chain=combine_document_chain,
+        document_variable_name="text",
+        verbose=False,
+    )
+    result = map_reduce_chain(docs)
     return result["output_text"]
+
+
+def generate_summary(section_titles: str) -> str:
+    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
+    document = Document(page_content=section_titles)
+    chain = LLMChain(llm=llm, prompt=SUMMARY_PROMPT_TEMPLATE, verbose=False)
+    result = chain([document])
+    return result["text"]
 
 
 @app.command()
@@ -76,11 +130,16 @@ def main(url: str):
     subtitles = get_transcripts(url)
 
     with get_openai_callback() as cb:
-        summary = generate_summary(subtitles)
+        section_summaries = generate_section_summaries(subtitles)
+        summary = generate_summary(section_summaries)
 
     print()
     print("Summary:")
     print(summary)
+
+    print()
+    print("Section summaries:")
+    print(section_summaries)
 
     print()
     print("OpenAI Stats:")
