@@ -4,7 +4,7 @@ This project extracts and summarizes transcripts from YouTube videos using OpenA
 
 ## Installation
 
-### Install from PyPi (Coming soon)
+### Install from PyPi
 You can install the application using `pip` or `pipx`:
 ```bash
 pip install --user youtube-summary
