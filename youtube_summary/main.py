@@ -152,13 +152,16 @@ def parse_section_summaries_text(text: str) -> List[SectionSummary]:
     return parsed_lines
 
 
-def print_section_summaries(url: str, section_summaries: str) -> None:
+def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
     parsed_section_summaries = parse_section_summaries_text(section_summaries)
+    pretty_summaries = []
     for section_summary in parsed_section_summaries:
         timestamp_seconds = section_summary.timestamp_seconds
         link = f"{url}&t={timestamp_seconds}"
         timestamp_pretty = f"{timestamp_seconds // 3600}:{timestamp_seconds // 60}:{timestamp_seconds % 60}"
-        print(f"[link={link}]{timestamp_pretty}[/link]: {section_summary.text}")
+        summary = f"[link={link}]{timestamp_pretty}[/link]: {section_summary.text}"
+        pretty_summaries.append(summary)
+    return "\n".join(pretty_summaries)
 
 
 @app.command()
@@ -175,7 +178,7 @@ def main(url: str):
 
     print()
     print("Section summaries:")
-    print_section_summaries(url, section_summaries)
+    print(get_pretty_section_summary_text(url, section_summaries))
 
     print()
     print("OpenAI Stats:")
