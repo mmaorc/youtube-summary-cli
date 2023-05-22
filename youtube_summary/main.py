@@ -175,13 +175,13 @@ def main(url: str):
         summary = generate_summary(section_summaries)
 
     console.print()
-    console.print("Summary:")
+    console.print("[bold]Summary:[/bold]")
     console.print(summary)
 
     console.print()
-    console.print("Section summaries:")
+    console.print("[bold]Section summaries:[/bold]")
     console.print(get_pretty_section_summary_text(url, section_summaries))
 
     console.print()
-    console.print("OpenAI Stats:")
+    console.print("[bold]OpenAI Stats:[/bold]")
     console.print(cb)
