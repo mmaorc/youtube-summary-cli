@@ -9,6 +9,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=find_packages(),
+    url="https://github.com/mmaorc/youtube-summary-cli",
     install_requires=[line.strip() for line in open("requirements.txt")],
     entry_points={
         "console_scripts": [
