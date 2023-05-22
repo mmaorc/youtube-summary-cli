@@ -1,3 +1,4 @@
+from typing import List
 from urllib.parse import parse_qs, urlparse
 
 import typer
@@ -9,13 +10,20 @@ from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
+import re
+from collections import namedtuple
+from rich import print
+
+
+# Define named tuple
+SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
 app = typer.Typer()
 
 SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its subtitles.
-The subtitles will be given between the triple backticks (```). The format of the subtitles will be ` [timestamp in seconds]: [text]`.
+The subtitles will be given between the triple backticks (```). The format of the subtitles will be ` [timestamp in seconds]: [text]`. 
 For each sentence in the summary, you should provide the start time of the video section that this sentence is based on.
-For example, a summary of a video section that starts in second 31 will be given with: `[31]` prefix.
+For example, a summary of a video section that starts in second 31 will be: `[31]: section summary`
 Here are the subtitles:
 ```
 {text}
@@ -125,6 +133,34 @@ def generate_summary(section_titles: str) -> str:
     return result["text"]
 
 
+def parse_section_summaries_text(text: str) -> List[SectionSummary]:
+    # Split text into lines
+    lines = text.split("\n")
+
+    parsed_lines = []
+
+    # Parse each line
+    for line in lines:
+        match = re.match(r"\s*\[(\d+(?:\.\d+)?)\]:\s+(.*)", line)
+        if match:
+            timestamp_seconds, text = match.groups()
+            parsed_line = SectionSummary(
+                timestamp_seconds=int(float(timestamp_seconds)), text=text
+            )
+            parsed_lines.append(parsed_line)
+
+    return parsed_lines
+
+
+def print_section_summaries(url: str, section_summaries: str) -> None:
+    parsed_section_summaries = parse_section_summaries_text(section_summaries)
+    for section_summary in parsed_section_summaries:
+        timestamp_seconds = section_summary.timestamp_seconds
+        link = f"{url}&t={timestamp_seconds}"
+        timestamp_pretty = f"{timestamp_seconds // 3600}:{timestamp_seconds // 60}:{timestamp_seconds % 60}"
+        print(f"[link={link}]{timestamp_pretty}[/link]: {section_summary.text}")
+
+
 @app.command()
 def main(url: str):
     subtitles = get_transcripts(url)
@@ -139,7 +175,7 @@ def main(url: str):
 
     print()
     print("Section summaries:")
-    print(section_summaries)
+    print_section_summaries(url, section_summaries)
 
     print()
     print("OpenAI Stats:")
