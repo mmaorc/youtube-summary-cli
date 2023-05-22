@@ -1,6 +1,10 @@
 # YouTube Summary CLI
 
-A simple CLI tool that summarizes YouTube videos using OpenAI GPT-3.5-turbo language model.
+A simple CLI tool that summarizes YouTube videos.
+
+![Screenshot](./docs/screenshot.png)
+
+The timestamp are also clickable, try them 🙂
 
 ## Installation
 
