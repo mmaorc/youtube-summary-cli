@@ -12,7 +12,17 @@ from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from rich.console import Console
-from youtube_transcript_api import NoTranscriptFound, YouTubeTranscriptApi
+from rich.panel import Panel
+from typer.rich_utils import (
+    ALIGN_ERRORS_PANEL,
+    ERRORS_PANEL_TITLE,
+    STYLE_ERRORS_PANEL_BORDER,
+)
+from youtube_transcript_api import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    YouTubeTranscriptApi,
+)
 
 # Define named tuple
 SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
@@ -69,7 +79,10 @@ def extract_video_information(url: str) -> VideoInfo:
 
 
 def get_transcripts(video_id: str) -> str:
-    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+    except TranscriptsDisabled as e:
+        raise Exception("Transcripts are disabled for this video") from e
 
     try:
         transcript = transcript_list.find_manually_created_transcript(["en"])
@@ -160,31 +173,50 @@ def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
     return "\n".join(pretty_summaries)
 
 
-@app.command()
-def main(url: str):
-    console = Console(highlight=False)
-
-    video_information = extract_video_information(url)
-
-    subtitles = get_transcripts(video_information.id)
-
-    with get_openai_callback() as cb:
-        section_summaries = generate_section_summaries(
-            video_information.title, subtitles
+def pretty_print_exception_message(console: Console, e: Exception) -> None:
+    console.print(
+        Panel(
+            f"An error occurred: {e}",
+            border_style=STYLE_ERRORS_PANEL_BORDER,
+            title=ERRORS_PANEL_TITLE,
+            title_align=ALIGN_ERRORS_PANEL,
+            highlight=False,
         )
-        summary = generate_summary(video_information.title, section_summaries)
+    )
 
-    console.print()
-    console.print(f"[bold]Video Title:[/bold] {video_information.title}")
 
-    console.print()
-    console.print("[bold]Summary:[/bold]")
-    console.print(summary)
+@app.command()
+def main(url: str, debug_mode: bool = False):
+    console = Console(highlight=False)
+    err_console = Console(stderr=True)
 
-    console.print()
-    console.print("[bold]Chapter Summaries:[/bold]")
-    console.print(get_pretty_section_summary_text(url, section_summaries))
+    try:
+        video_information = extract_video_information(url)
 
-    console.print()
-    console.print("[bold]OpenAI Stats:[/bold]")
-    console.print(cb)
+        subtitles = get_transcripts(video_information.id)
+
+        with get_openai_callback() as cb:
+            section_summaries = generate_section_summaries(
+                video_information.title, subtitles
+            )
+            summary = generate_summary(video_information.title, section_summaries)
+
+        console.print()
+        console.print(f"[bold]Video Title:[/bold] {video_information.title}")
+
+        console.print()
+        console.print("[bold]Summary:[/bold]")
+        console.print(summary)
+
+        console.print()
+        console.print("[bold]Chapter Summaries:[/bold]")
+        console.print(get_pretty_section_summary_text(url, section_summaries))
+
+        console.print()
+        console.print("[bold]OpenAI Stats:[/bold]")
+        console.print(cb)
+    except Exception as e:
+        if debug_mode:
+            raise e
+        pretty_print_exception_message(err_console, e)
+        raise typer.Exit(1)
