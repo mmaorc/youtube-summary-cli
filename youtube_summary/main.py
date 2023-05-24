@@ -142,13 +142,19 @@ def parse_section_summaries_text(text: str) -> List[SectionSummary]:
     return parsed_lines
 
 
+def pretty_timestamp(timestamp_seconds: int) -> str:
+    hours, remainder = divmod(timestamp_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours}:{minutes}:{seconds}"
+
+
 def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
     parsed_section_summaries = parse_section_summaries_text(section_summaries)
     pretty_summaries = []
     for section_summary in parsed_section_summaries:
         timestamp_seconds = section_summary.timestamp_seconds
         link = f"{url}&t={timestamp_seconds}"
-        timestamp_pretty = f"{timestamp_seconds // 3600:02d}:{timestamp_seconds // 60:02d}:{timestamp_seconds % 60:02d}"
+        timestamp_pretty = pretty_timestamp(timestamp_seconds)
         summary = f"[link={link}]{timestamp_pretty}[/link]: {section_summary.text}"
         pretty_summaries.append(summary)
     return "\n".join(pretty_summaries)
