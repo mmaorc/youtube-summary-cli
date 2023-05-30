@@ -1,6 +1,6 @@
 # YouTube Summary CLI
 
-A simple CLI tool that summarizes YouTube videos.
+A simple CLI tool that summarizes YouTube videos. This tool is designed to help users quickly understand the main points of a video without having to watch the entire content. It uses AI to generate a concise summary of the video's transcript.
 
 ![Screenshot](./docs/screenshot.png)
 
@@ -54,6 +54,12 @@ Replace `your_video_id` with the actual video ID.
 
 Note that generating a summary might take a couple of minutes, depending on the video's transcript length.
 
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+
+
+## Contact Me
+
+You can find me on [Twitter](https://twitter.com/SomeMaorCohen) and [LinkedIn](https://www.linkedin.com/in/mmaorc/).
