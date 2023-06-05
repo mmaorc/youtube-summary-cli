@@ -1,7 +1,4 @@
-import re
-from collections import namedtuple
 from typing import List
-
 import typer
 from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
@@ -19,12 +16,11 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
     YouTubeTranscriptApi,
 )
-from youtube_summary.section_summarizer import SectionSummarizer
+from youtube_summary.section_summarizer import SectionSummarizer, SectionSummary
 
 from youtube_summary.video_infromation import extract_video_information
 
 # Define named tuple
-SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
 
 app = typer.Typer()
@@ -70,32 +66,14 @@ def get_transcripts(video_id: str) -> str:
     return subtitles
 
 
-def generate_summary(video_title: str, section_titles: str) -> str:
+def generate_summary(video_title: str, section_summaries: List[SectionSummary]) -> str:
     llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
-    document = Document(page_content=section_titles)
+    serialized_section_summaries = "\n".join([s.text for s in section_summaries])
+    document = Document(page_content=serialized_section_summaries)
     prompt = SUMMARY_PROMPT_TEMPLATE.partial(video_title=video_title)
     chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
     result = chain([document])
     return result["text"]
-
-
-def parse_section_summaries_text(text: str) -> List[SectionSummary]:
-    # Split text into lines
-    lines = text.split("\n")
-
-    parsed_lines = []
-
-    # Parse each line
-    for line in lines:
-        match = re.match(r"\s*\[(\d+(?:\.\d+)?)\]:\s+(.*)", line)
-        if match:
-            timestamp_seconds, text = match.groups()
-            parsed_line = SectionSummary(
-                timestamp_seconds=int(float(timestamp_seconds)), text=text
-            )
-            parsed_lines.append(parsed_line)
-
-    return parsed_lines
 
 
 def pretty_timestamp(timestamp_seconds: int) -> str:
@@ -104,10 +82,11 @@ def pretty_timestamp(timestamp_seconds: int) -> str:
     return f"{hours}:{minutes}:{seconds}"
 
 
-def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
-    parsed_section_summaries = parse_section_summaries_text(section_summaries)
+def get_pretty_section_summary_text(
+    url: str, section_summaries: List[SectionSummary]
+) -> str:
     pretty_summaries = []
-    for section_summary in parsed_section_summaries:
+    for section_summary in section_summaries:
         timestamp_seconds = section_summary.timestamp_seconds
         link = f"{url}&t={timestamp_seconds}"
         timestamp_pretty = pretty_timestamp(timestamp_seconds)

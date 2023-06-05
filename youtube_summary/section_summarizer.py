@@ -1,8 +1,17 @@
+from dataclasses import dataclass
+import re
+from typing import List
 from langchain import LLMChain, PromptTemplate
 from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+
+@dataclass(frozen=True)
+class SectionSummary:
+    timestamp_seconds: int
+    text: str
 
 
 class SectionSummarizer:
@@ -29,7 +38,7 @@ class SectionSummarizer:
             separators=["\n\n", "\n"], chunk_size=1024, chunk_overlap=100
         )
 
-    def summarize(self, video_title: str, subtitles: str) -> str:
+    def summarize(self, video_title: str, subtitles: str) -> List[SectionSummary]:
         docs = self.text_splitter.create_documents([subtitles])
 
         prompt = SectionSummarizer.SECTION_TITLES_PROMPT_TEMPLATE.partial(
@@ -49,6 +58,27 @@ class SectionSummarizer:
             verbose=False,
         )
 
-        result = map_reduce_chain(docs)
+        llm_result = map_reduce_chain(docs)
 
-        return result["output_text"]
+        llm_output = llm_result["output_text"]
+
+        return self._parse_section_summaries_text(llm_output)
+
+    @staticmethod
+    def _parse_section_summaries_text(text: str) -> List[SectionSummary]:
+        # Split text into lines
+        lines = text.split("\n")
+
+        parsed_lines = []
+
+        # Parse each line
+        for line in lines:
+            match = re.match(r"\s*\[(\d+(?:\.\d+)?)\]:\s+(.*)", line)
+            if match:
+                timestamp_seconds, text = match.groups()
+                parsed_line = SectionSummary(
+                    timestamp_seconds=int(float(timestamp_seconds)), text=text
+                )
+                parsed_lines.append(parsed_line)
+
+        return parsed_lines
