@@ -2,6 +2,11 @@ import re
 from collections import namedtuple
 from typing import List
 
+from urllib.parse import urlparse
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from google.oauth2 import service_account
+
 import typer
 import yt_dlp
 from langchain import LLMChain, PromptTemplate
@@ -160,6 +165,51 @@ def pretty_timestamp(timestamp_seconds: int) -> str:
     minutes, seconds = divmod(remainder, 60)
     return f"{hours}:{minutes}:{seconds}"
 
+def get_youtube_channel_name(url) ->str:
+    parsed_url = urlparse(url)
+    if parsed_url.netloc == 'www.youtube.com' or parsed_url.netloc == 'youtube.com':
+        query_params = parsed_url.query.split('&')
+        for param in query_params:
+            if param.startswith('channel='):
+                channel_name = param.split('=')[1]
+                return channel_name
+    return None
+
+def get_youtube_video_duration(url):
+    api_service_name = "youtube"
+    api_version = "v3"
+    credentials = service_account.Credentials.from_service_account_file(
+        "path/to/your/service-account-key.json"
+    )
+
+    youtube = build(api_service_name, api_version, credentials=credentials)
+
+    video_id = extract_video_id(url)
+    try:
+        request = youtube.videos().list(
+            part="contentDetails",
+            id=video_id
+        )
+        response = request.execute()
+        items = response.get("items", [])
+        if len(items) > 0:
+            duration = items[0]["contentDetails"]["duration"]
+            return duration
+        else:
+            return None
+    except HttpError as e:
+        print(f"An error occurred: {e}")
+        return None
+
+def extract_video_id(url):
+    video_id = None
+    parsed_url = urlparse(url)
+    if parsed_url.netloc == "www.youtube.com" or parsed_url.netloc == "youtube.com":
+        query_params = parse_qs(parsed_url.query)
+        if "v" in query_params:
+            video_id = query_params["v"][0]
+    return video_id
+
 
 def get_pretty_section_summary_text(url: str, section_summaries: str) -> str:
     parsed_section_summaries = parse_section_summaries_text(section_summaries)
@@ -191,6 +241,18 @@ def main(url: str, debug_mode: bool = False):
     err_console = Console(stderr=True)
 
     try:
+        channel_name = get_youtube_channel_name(video_link)
+        if channel_name:
+            print(f"The video belongs to the channel: {channel_name}")
+        else:
+            print("Could not extract the channel name.")
+
+        duration = get_youtube_video_duration(video_link)
+        if duration:
+            print(f"The duration of the video is: {duration}")
+        else:
+            print("Could not retrieve the video duration.")
+
         video_information = extract_video_information(url)
 
         subtitles = get_transcripts(video_information.id)
