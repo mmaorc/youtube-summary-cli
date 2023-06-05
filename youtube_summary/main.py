@@ -5,11 +5,8 @@ from typing import List
 import typer
 from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
-from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from rich.console import Console
 from rich.panel import Panel
 from typer.rich_utils import (
@@ -22,6 +19,7 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
     YouTubeTranscriptApi,
 )
+from youtube_summary.section_summarizer import SectionSummarizer
 
 from youtube_summary.video_infromation import extract_video_information
 
@@ -31,22 +29,6 @@ SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
 app = typer.Typer()
 
-SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its title and english subtitles.
-The format of the subtitles will be `[timestamp in seconds]: [subtitle]`.
-For each sentence in the summary, you should provide a timestamp to the original video section that this sentence is based on.
-For example, a summary of a video section that starts at second 31 will be: `[31]: summary`.
-
-The title of the video is: {video_title}
-The subtitles are given between the triple backticks:
-```
-{text}
-```
-
-Your summary:
-"""
-SECTION_TITLES_PROMPT_TEMPLATE = PromptTemplate(
-    template=SECTION_TITLES_PROMPT, input_variables=["text", "video_title"]
-)
 
 SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its title and chapter summaries.
 The format of the chapter summaries will be `[chapter timestamp in seconds]: chapter summary`.
@@ -86,31 +68,6 @@ def get_transcripts(video_id: str) -> str:
     )
 
     return subtitles
-
-
-def generate_section_summaries(video_title: str, subtitles: str) -> str:
-    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
-    text_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n", "\n"], chunk_size=1024, chunk_overlap=100
-    )
-    docs = text_splitter.create_documents([subtitles])
-
-    prompt = SECTION_TITLES_PROMPT_TEMPLATE.partial(video_title=video_title)
-    map_chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
-    reduce_chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
-    combine_document_chain = StuffDocumentsChain(
-        llm_chain=reduce_chain,
-        document_variable_name="text",
-        verbose=False,
-    )
-    map_reduce_chain = MapReduceDocumentsChain(
-        llm_chain=map_chain,
-        combine_document_chain=combine_document_chain,
-        document_variable_name="text",
-        verbose=False,
-    )
-    result = map_reduce_chain(docs)
-    return result["output_text"]
 
 
 def generate_summary(video_title: str, section_titles: str) -> str:
@@ -184,12 +141,14 @@ def main(url: str, debug_mode: bool = False):
     err_console = Console(stderr=True)
 
     try:
+        section_summarizer = SectionSummarizer()
+
         video_information = extract_video_information(url)
 
         subtitles = get_transcripts(video_information.id)
 
         with get_openai_callback() as cb:
-            section_summaries = generate_section_summaries(
+            section_summaries = section_summarizer.summarize(
                 video_information.title, subtitles
             )
             summary = generate_summary(video_information.title, section_summaries)
