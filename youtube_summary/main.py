@@ -3,7 +3,6 @@ from collections import namedtuple
 from typing import List
 
 import typer
-import yt_dlp
 from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
 from langchain.chains.combine_documents.map_reduce import MapReduceDocumentsChain
@@ -24,13 +23,11 @@ from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
 
+from youtube_summary.video_infromation import extract_video_information
+
 # Define named tuple
 SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
-VideoInfo = namedtuple(
-    "VideoInfo",
-    ["id", "title", "url", "duration", "channel", "channel_url"],
-)
 
 app = typer.Typer()
 
@@ -65,21 +62,6 @@ Your concise video summary:"""
 SUMMARY_PROMPT_TEMPLATE = PromptTemplate(
     template=SUMMARY_PROMPT, input_variables=["text", "video_title"]
 )
-
-
-def extract_video_information(url: str) -> VideoInfo:
-    ydl_opts = {"quiet": True}
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=False)
-        return VideoInfo(
-            id=info_dict.get("id"),
-            title=info_dict.get("title"),
-            url=info_dict.get("webpage_url"),
-            duration=info_dict.get("duration"),
-            channel=info_dict.get("channel"),
-            channel_url=info_dict.get("channel_url"),
-        )
 
 
 def get_transcripts(video_id: str) -> str:
