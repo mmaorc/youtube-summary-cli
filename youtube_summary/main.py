@@ -187,6 +187,13 @@ def pretty_print_exception_message(console: Console, e: Exception) -> None:
 
 @app.command()
 def main(url: str, debug_mode: bool = False):
+    """
+    A simple CLI tool that summarizes YouTube videos.
+
+    If you encounter a bug, please open an issue at: https://github.com/mmaorc/youtube-summary-cli.
+
+    If you have any questions, you can find me on Twitter: https://bit.ly/43ow5WT.
+    """
     console = Console(highlight=False)
     err_console = Console(stderr=True)
 
