@@ -67,10 +67,6 @@ SUMMARY_PROMPT_TEMPLATE = PromptTemplate(
 )
 
 
-class InvalidURLException(Exception):
-    pass
-
-
 def extract_video_information(url: str) -> VideoInfo:
     ydl_opts = {"quiet": True}
 
