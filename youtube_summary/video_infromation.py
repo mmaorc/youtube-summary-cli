@@ -1,10 +1,15 @@
-from collections import namedtuple
+from dataclasses import dataclass
 import yt_dlp
 
-VideoInfo = namedtuple(
-    "VideoInfo",
-    ["id", "title", "url", "duration", "channel", "channel_url"],
-)
+
+@dataclass(frozen=True)
+class VideoInfo:
+    id: str
+    title: str
+    url: str
+    duration: int
+    channel: str
+    channel_url: str
 
 
 def extract_video_information(url: str) -> VideoInfo:
