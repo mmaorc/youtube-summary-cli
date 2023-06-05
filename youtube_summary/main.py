@@ -27,9 +27,12 @@ from youtube_transcript_api import (
 # Define named tuple
 SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
-VideoInfo = namedtuple("VideoInfo", ["id", "title"])
+VideoInfo = namedtuple(
+    "VideoInfo",
+    ["id", "title", "url", "duration", "channel", "channel_url"],
+)
 
-app = typer.Typer(add_completion=False)
+app = typer.Typer()
 
 SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its title and english subtitles.
 The format of the subtitles will be `[timestamp in seconds]: [subtitle]`.
@@ -73,9 +76,14 @@ def extract_video_information(url: str) -> VideoInfo:
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
-        title = info_dict.get("title")
-        id = info_dict.get("id")
-        return VideoInfo(id=id, title=title)
+        return VideoInfo(
+            id=info_dict.get("id"),
+            title=info_dict.get("title"),
+            url=info_dict.get("webpage_url"),
+            duration=info_dict.get("duration"),
+            channel=info_dict.get("channel"),
+            channel_url=info_dict.get("channel_url"),
+        )
 
 
 def get_transcripts(video_id: str) -> str:
@@ -209,7 +217,16 @@ def main(url: str, debug_mode: bool = False):
             summary = generate_summary(video_information.title, section_summaries)
 
         console.print()
-        console.print(f"[bold]Video Title:[/bold] {video_information.title}")
+        console.print(
+            f"[bold]Title:[/bold] [link={video_information.url}]"
+            f"{video_information.title}[/link]"
+        )
+        video_duration = pretty_timestamp(video_information.duration)
+        console.print(f"[bold]Duration:[/bold] {video_duration}")
+        console.print(
+            f"[bold]Channel:[/bold] [link={video_information.channel_url}]"
+            f"{video_information.channel}[/link]"
+        )
 
         console.print()
         console.print("[bold]Summary:[/bold]")
