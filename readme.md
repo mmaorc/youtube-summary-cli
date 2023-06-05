@@ -62,4 +62,4 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 ## Contact Me
 
-You can find me on [Twitter](https://twitter.com/SomeMaorCohen) and [LinkedIn](https://www.linkedin.com/in/mmaorc/).
+You can find me on [Twitter](https://bit.ly/43ow5WT).
