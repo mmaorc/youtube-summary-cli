@@ -1,9 +1,6 @@
 from typing import List
 import typer
-from langchain import LLMChain, PromptTemplate
 from langchain.callbacks import get_openai_callback
-from langchain.chat_models import ChatOpenAI
-from langchain.docstore.document import Document
 from rich.console import Console
 from rich.panel import Panel
 from typer.rich_utils import (
@@ -16,6 +13,7 @@ from youtube_transcript_api import (
     TranscriptsDisabled,
     YouTubeTranscriptApi,
 )
+from youtube_summary.overall_summarizer import OverallSummarizer
 from youtube_summary.section_summarizer import SectionSummarizer, SectionSummary
 
 from youtube_summary.video_infromation import extract_video_information
@@ -24,22 +22,6 @@ from youtube_summary.video_infromation import extract_video_information
 
 
 app = typer.Typer()
-
-
-SUMMARY_PROMPT = """Your mission is to write a conscise summary of a video using its title and chapter summaries.
-The format of the chapter summaries will be `[chapter timestamp in seconds]: chapter summary`.
-For example, a summary of a chapter that starts at second 31 will be: `[31]: summary`.
-
-The title of the video is: {video_title}
-The chapter summaries are given between the triple backticks:
-```
-{text}
-```
-
-Your concise video summary:"""
-SUMMARY_PROMPT_TEMPLATE = PromptTemplate(
-    template=SUMMARY_PROMPT, input_variables=["text", "video_title"]
-)
 
 
 def get_transcripts(video_id: str) -> str:
@@ -64,16 +46,6 @@ def get_transcripts(video_id: str) -> str:
     )
 
     return subtitles
-
-
-def generate_summary(video_title: str, section_summaries: List[SectionSummary]) -> str:
-    llm = ChatOpenAI(temperature=0, model_name="gpt-3.5-turbo")
-    serialized_section_summaries = "\n".join([s.text for s in section_summaries])
-    document = Document(page_content=serialized_section_summaries)
-    prompt = SUMMARY_PROMPT_TEMPLATE.partial(video_title=video_title)
-    chain = LLMChain(llm=llm, prompt=prompt, verbose=False)
-    result = chain([document])
-    return result["text"]
 
 
 def pretty_timestamp(timestamp_seconds: int) -> str:
@@ -121,6 +93,7 @@ def main(url: str, debug_mode: bool = False):
 
     try:
         section_summarizer = SectionSummarizer()
+        overall_summarizer = OverallSummarizer()
 
         video_information = extract_video_information(url)
 
@@ -130,7 +103,9 @@ def main(url: str, debug_mode: bool = False):
             section_summaries = section_summarizer.summarize(
                 video_information.title, subtitles
             )
-            summary = generate_summary(video_information.title, section_summaries)
+            summary = overall_summarizer.summarize(
+                video_information.title, section_summaries
+            )
 
         console.print()
         console.print(
