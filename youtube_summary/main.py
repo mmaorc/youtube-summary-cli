@@ -29,7 +29,7 @@ SectionSummary = namedtuple("SectionSummary", ["timestamp_seconds", "text"])
 
 VideoInfo = namedtuple("VideoInfo", ["id", "title"])
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False)
 
 SECTION_TITLES_PROMPT = """Your mission is to summarize a video using its title and english subtitles.
 The format of the subtitles will be `[timestamp in seconds]: [subtitle]`.
